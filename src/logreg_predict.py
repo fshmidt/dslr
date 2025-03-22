@@ -1,8 +1,6 @@
 import csv
 from logistic_regression import LogisticRegression
-import json
 import argparse
-from math_utils import MathUtils
 
 def load_test_data(file_path):
     """Load test data from CSV"""

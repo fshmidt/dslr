@@ -1,7 +1,7 @@
 import argparse
 import json
 import csv
-from logistic_regression import LogisticRegression
+from logistic_regression_stochastic import LogisticRegression
 from math_utils import MathUtils
 
 

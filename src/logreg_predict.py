@@ -1,5 +1,5 @@
 import csv
-from logistic_regression import LogisticRegression
+from logistic_regression_stochastic import LogisticRegression
 import json
 import argparse
 from math_utils import MathUtils

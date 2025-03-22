@@ -35,6 +35,26 @@ class LogisticRegression:
         cost = -(1/m) * sum(yi * MathUtils.log(hi) + (1-yi) * MathUtils.log(1-hi) for yi, hi in zip(y, h))
         return cost
 
+
+    def stochastic_gradient_descent(self, X, y, weights):
+        # Initialize gradient
+        n_features = len(weights)
+        gradient = [0] * n_features
+
+        # Get a single random sample
+        idx = random.randint(0, len(X) - 1)
+        x_i = X[idx]
+        y_i = y[idx]
+
+        h = MathUtils.sigmoid(MathUtils.dot_product(x_i, weights))
+        error = h - y_i
+
+        for j in range(n_features):
+            gradient[j] = error * x_i[j]
+        
+        return gradient
+
+
     def gradient_descent(self, X, y, weights, batch_size=32):
         """Gradient descent with mini-batches"""
         m = len(X)
@@ -58,7 +78,7 @@ class LogisticRegression:
         
         gradient = [g * (batch_size/m) for g in gradient]
         return gradient
-
+    
     def fit_one_vs_all(self, X, y, class_val):
         """Train logistic regression for one class vs all others"""
         m = len(X)
@@ -71,11 +91,14 @@ class LogisticRegression:
         for i in range(self.max_iter):
             gradient = self.stochastic_gradient_descent(X_with_bias, y_binary, weights)
             weights = [w - self.learning_rate * g for w, g in zip(weights, gradient)]
+            
+            # Compute cost periodically to check convergence
             if i % 50 == 0:
                 cost = self.compute_cost(X_with_bias, y_binary, weights)
                 costs.append(cost)
                 if len(costs) > 1 and abs(costs[-1] - costs[-2]) < self.epsilon:
                     break
+                    
         return weights, costs
 
     def fit(self, X, y):

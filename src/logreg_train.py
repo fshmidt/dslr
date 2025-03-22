@@ -73,10 +73,6 @@ def main():
         model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter, gd_type=args.gd)
         costs_dict = model.fit(X, y)
 
-        y_pred = model.predict(X)
-        accuracy = sum(1 for pred, true in zip(y_pred, y) if pred == true) / len(y)
-        print(f"Training accuracy: {accuracy:.4f}")
-
         model.save_model(args.output)
         print(f"Model saved to {args.output}")
 

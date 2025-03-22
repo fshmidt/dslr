@@ -1,53 +1,8 @@
 import csv
+from logistic_regression import LogisticRegression
 import json
 import argparse
 from math_utils import MathUtils
-
-class LogisticRegression:
-    @classmethod
-    def load_model(cls, filename):
-        """Load model parameters from file"""
-        with open(filename, 'r') as f:
-            model_data = json.load(f)
-        
-        model = cls()
-        model.weights = {k: v for k, v in model_data['weights'].items()}
-        model.mean = model_data['mean']
-        model.std = model_data['std']
-        model.classes = model_data['classes']
-        model.features = len(model.mean)
-        return model
-
-    def predict_proba(self, X):
-        """Predict probability for each class"""
-        X = [list(map(float, row)) for row in X]
-        X_norm = [[(x - m) / s for x, m, s in zip(row, self.mean, self.std)] for row in X]
-        
-        m = len(X_norm)
-        X_with_bias = [[1] + row for row in X_norm]
-        
-        probas = {}
-        for class_val, weights in self.weights.items():
-            probas[class_val] = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X_with_bias]
-        return probas
-
-    def predict(self, X):
-        """Predict class with highest probability"""
-        probas = self.predict_proba(X)
-        
-        m = len(X)
-        predictions = []
-        
-        for i in range(m):
-            max_prob = -1
-            max_class = None
-            for class_val, probs in probas.items():
-                if probs[i] > max_prob:
-                    max_prob = probs[i]
-                    max_class = class_val
-            predictions.append(max_class)
-        
-        return predictions
 
 def load_test_data(file_path):
     """Load test data from CSV"""

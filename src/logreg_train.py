@@ -66,6 +66,7 @@ def main():
     parser.add_argument('--iter', type=int, default=1000, help='Maximum iterations')
     parser.add_argument('--visualize', action='store_true', help='Visualize training progress')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of samples for faster training')
+    parser.add_argument('--gd', type=str, choices=['standard', 'batch'], default='standard',help='Type of gradient descent: standard or batch')
     args = parser.parse_args()
 
     try:
@@ -73,7 +74,7 @@ def main():
         X, y, _ = load_and_prepare_data(args.dataset, limit=args.limit)
         print(f"Training on {len(X)} samples with {len(X[0])} features...")
 
-        model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter)
+        model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter, gd_type=args.gd)
         costs_dict = model.fit(X, y)
 
         y_pred = model.predict(X)

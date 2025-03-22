@@ -4,7 +4,7 @@ import random
 from multiprocessing import Pool
 
 class LogisticRegression:
-    def __init__(self, learning_rate=0.1, max_iter=1000, epsilon=1e-5, gd_type='standard'):
+    def __init__(self, learning_rate=0.01, max_iter=1000, epsilon=1e-5, gd_type='standard'):
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.epsilon = epsilon

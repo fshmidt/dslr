@@ -1,7 +1,6 @@
 import argparse
-import json
 import csv
-from logistic_regression_stochastic import LogisticRegression
+from logistic_regression import LogisticRegression
 from math_utils import MathUtils
 
 
@@ -66,7 +65,7 @@ def main():
     parser.add_argument('--iter', type=int, default=1000, help='Maximum iterations')
     parser.add_argument('--visualize', action='store_true', help='Visualize training progress')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of samples for faster training')
-    parser.add_argument('--gd', type=str, choices=['standard', 'batch'], default='standard',help='Type of gradient descent: standard or batch')
+    parser.add_argument('--gd', type=str, choices=['standard', 'batch', 'stochastic'], default='standard',help='Type of gradient descent: standard/batch/stochastic')
     args = parser.parse_args()
 
     try:

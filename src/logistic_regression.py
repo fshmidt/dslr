@@ -5,10 +5,11 @@ import random
 from multiprocessing import Pool
 
 class LogisticRegression:
-    def __init__(self, learning_rate=0.1, max_iter=1000, epsilon=1e-5):
+    def __init__(self, learning_rate=0.1, max_iter=1000, epsilon=1e-5, gd_type='standard'):
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.epsilon = epsilon
+        self.gd_type = gd_type  # bonus
         self.weights = {}
         self.classes = None
         self.features = None
@@ -36,7 +37,21 @@ class LogisticRegression:
         cost = -(1/m) * sum(yi * MathUtils.log(hi) + (1-yi) * MathUtils.log(1-hi) for yi, hi in zip(y, h))
         return cost
 
-    def gradient_descent(self, X, y, weights, batch_size=32):
+    def gradient_descent_standard(self, X, y, weights):
+        """Standard gradient descent using all samples"""
+        m = len(X)
+        gradient = [0] * len(weights)
+        
+        h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X]
+        errors = [(hi - yi) for hi, yi in zip(h, y)]
+        
+        X_T = MathUtils.transpose(X)
+        for j in range(len(weights)):
+            gradient[j] = (1/m) * sum(err * xj for err, xj in zip(errors, X_T[j]))
+        
+        return gradient
+
+    def gradient_descent_batch(self, X, y, weights, batch_size=32):
         """Gradient descent with mini-batches"""
         m = len(X)
         gradient = [0] * len(weights)
@@ -60,6 +75,12 @@ class LogisticRegression:
         gradient = [g * (batch_size/m) for g in gradient]
         return gradient
 
+    def gradient_descent(self, X, y, weights):
+        """Wrapper method to choose gradient descent type"""
+        if self.gd_type == 'batch':
+            return self.gradient_descent_batch(X, y, weights)
+        return self.gradient_descent_standard(X, y, weights)
+
     def fit_one_vs_all(self, X, y, class_val):
         """Train logistic regression for one class vs all others"""
         m = len(X)
@@ -70,7 +91,7 @@ class LogisticRegression:
 
         costs = []
         for i in range(self.max_iter):
-            gradient = self.gradient_descent(X_with_bias, y_binary, weights, batch_size=32)
+            gradient = self.gradient_descent(X_with_bias, y_binary, weights)
             weights = [w - self.learning_rate * g for w, g in zip(weights, gradient)]
             if i % 50 == 0:
                 cost = self.compute_cost(X_with_bias, y_binary, weights)
@@ -88,7 +109,8 @@ class LogisticRegression:
         self.features = len(X[0])
         costs_dict = {}
 
-        tasks = [(class_val, X_norm, y, self.max_iter, self.learning_rate, self.epsilon) for class_val in self.classes]
+        tasks = [(class_val, X_norm, y, self.max_iter, self.learning_rate, self.epsilon, self.gd_type) 
+                for class_val in self.classes]
         with Pool() as pool:
             results = pool.map(fit_class_wrapper, tasks)
 
@@ -134,13 +156,15 @@ class LogisticRegression:
             'weights': {str(k): v for k, v in self.weights.items()},
             'mean': self.mean,
             'std': self.std,
-            'classes': self.classes
+            'classes': self.classes,
+            'gd_type': self.gd_type
         }
         with open(filename, 'w') as f:
             json.dump(model_data, f)
 
 def fit_class_wrapper(args):
     """Function for parallel training of one class"""
-    class_val, X_data, y_data, max_iter, learning_rate, epsilon = args
-    lr_temp = LogisticRegression(learning_rate=learning_rate, max_iter=max_iter, epsilon=epsilon)
+    class_val, X_data, y_data, max_iter, learning_rate, epsilon, gd_type = args
+    lr_temp = LogisticRegression(learning_rate=learning_rate, max_iter=max_iter, 
+                               epsilon=epsilon, gd_type=gd_type)
     return class_val, lr_temp.fit_one_vs_all(X_data, y_data, class_val)

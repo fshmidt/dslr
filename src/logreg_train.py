@@ -5,7 +5,7 @@ from logistic_regression import LogisticRegression
 from math_utils import MathUtils
 
 
-def load_and_prepare_data(file_path, limit=None):
+def load_and_prepare_data(file_path):
     """Load and prepare data from CSV"""
     with open(file_path, 'r') as f:
         reader = csv.reader(f)
@@ -16,8 +16,6 @@ def load_and_prepare_data(file_path, limit=None):
         raise ValueError("Dataset must contain 'Hogwarts House' column")
 
     numeric_cols = [i for i, h in enumerate(headers) if h not in ['Index', 'Hogwarts House'] and data[0][i].replace('.', '', 1).lstrip('-').isdigit()]
-    if limit:
-        data = random.sample(data, min(limit, len(data)))
 
     X = []
     y = []
@@ -62,16 +60,15 @@ def main():
     parser = argparse.ArgumentParser(description='Train logistic regression classifier')
     parser.add_argument('dataset', type=str, help='Path to training dataset CSV file')
     parser.add_argument('--output', type=str, default='model.json', help='Output file for model parameters')
-    parser.add_argument('--lr', type=float, default=0.1, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--iter', type=int, default=1000, help='Maximum iterations')
     parser.add_argument('--visualize', action='store_true', help='Visualize training progress')
-    parser.add_argument('--limit', type=int, default=None, help='Limit number of samples for faster training')
     parser.add_argument('--gd', type=str, choices=['standard', 'batch'], default='standard',help='Type of gradient descent: standard or batch')
     args = parser.parse_args()
 
     try:
         print(f"Loading data from {args.dataset}...")
-        X, y, _ = load_and_prepare_data(args.dataset, limit=args.limit)
+        X, y, _ = load_and_prepare_data(args.dataset)
         print(f"Training on {len(X)} samples with {len(X[0])} features...")
 
         model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter, gd_type=args.gd)

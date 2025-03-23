@@ -1,6 +1,3 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import argparse
 import json
 from math_utils import MathUtils
 
@@ -32,7 +29,6 @@ class LogisticRegression:
         return gradient
     
     def fit_one_vs_all(self, X, y, class_val):
-        m = len(X)
         n = len(X[0])
         X_with_bias = [[1] + row for row in X]
         y_binary = [1 if yi == class_val else 0 for yi in y]
@@ -49,24 +45,21 @@ class LogisticRegression:
         return weights, costs
     
     def fit(self, X_train, y_train, X_val, y_val):
-        X_train_norm, self.min_vals, self.max_vals = MathUtils.min_max_scale(X_train)
-        X_val_norm = [[(x - min_v) / (max_v - min_v if max_v - min_v != 0 else 1) 
-                       for x, min_v, max_v in zip(row, self.min_vals, self.max_vals)] 
-                      for row in X_val]
-        
+        X_train_norm, self.min_vals, self.max_vals = MathUtils.min_max_scale(X_train)\
+
         self.classes = list(set(y_train))
         self.features = len(X_train[0])
-        
+
         costs_dict = {}
         for class_val in self.classes:
             weights, costs = self.fit_one_vs_all(X_train_norm, y_train, class_val)
             self.weights[class_val] = weights
             costs_dict[class_val] = costs
-        
+
         val_predictions = self.predict(X_val)
         val_accuracy = sum(1 for pred, true in zip(val_predictions, y_val) if pred == true) / len(y_val)
         print(f"Validation accuracy: {val_accuracy:.4f}")
-        
+
         return costs_dict
     
     def predict_proba(self, X):

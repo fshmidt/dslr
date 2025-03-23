@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
-import json
 from math_utils import MathUtils
 from logistic_regression import LogisticRegression
 
@@ -54,11 +53,11 @@ def main():
     try:
         print(f"Loading data from {args.dataset}...")
         X, y, feature_names, means = load_and_prepare_data(args.dataset)
-        
+
         X_train, y_train, X_val, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-        
+
         print(f"Training on {len(X_train)} samples, validating on {len(X_val)} samples with {len(X_train[0])} features...")
-        
+
         model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter)
         model.means = means
         model.feature_names = feature_names

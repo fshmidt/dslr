@@ -1,7 +1,5 @@
 import csv
-import json
 import argparse
-from math_utils import MathUtils
 from logistic_regression import LogisticRegression
 
 def load_test_data(file_path, means, feature_names):

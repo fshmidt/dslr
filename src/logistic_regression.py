@@ -1,164 +1,89 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import argparse
 import json
 from math_utils import MathUtils
-import random
-from multiprocessing import Pool
 
 class LogisticRegression:
-    def __init__(self, learning_rate=0.01, max_iter=1000, epsilon=1e-5, gd_type='standard'):
+    def __init__(self, learning_rate=0.1, max_iter=1000, epsilon=1e-5):
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.epsilon = epsilon
-        self.gd_type = gd_type  # bonus
         self.weights = {}
         self.classes = None
         self.features = None
-        self.mean = None
-        self.std = None
-
-    @classmethod
-    def load_model(cls, filename):
-        """Load model parameters from file"""
-        with open(filename, 'r') as f:
-            model_data = json.load(f)
-        
-        model = cls()
-        model.weights = {k: v for k, v in model_data['weights'].items()}
-        model.mean = model_data['mean']
-        model.std = model_data['std']
-        model.classes = model_data['classes']
-        model.features = len(model.mean)
-        return model
-        
+        self.min_vals = None
+        self.max_vals = None
+        self.means = None
+        self.feature_names = None
+    
     def compute_cost(self, X, y, weights):
-        """Compute the logistic regression cost"""
         m = len(X)
         h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X]
-        cost = -(1/m) * sum(yi * MathUtils.log(hi) + (1-yi) * MathUtils.log(1-hi) for yi, hi in zip(y, h))
+        cost = -(1/m) * sum(yi * MathUtils.log(hi) + (1 - yi) * MathUtils.log(1 - hi) for yi, hi in zip(y, h))
         return cost
-
-    def gradient_descent_standard(self, X, y, weights):
-        """Standard gradient descent using all samples"""
-        m = len(X)
-        gradient = [0] * len(weights)
-        
-        h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X]
-        errors = [(hi - yi) for hi, yi in zip(h, y)]
-        
-        X_T = MathUtils.transpose(X)
-        for j in range(len(weights)):
-            gradient[j] = (1/m) * sum(err * xj for err, xj in zip(errors, X_T[j]))
-        
-        return gradient
-
-    def gradient_descent_batch(self, X, y, weights, batch_size=32):
-        """Gradient descent with mini-batches"""
-        m = len(X)
-        gradient = [0] * len(weights)
-        
-        indices = list(range(m))
-        random.shuffle(indices)
-        
-        for start in range(0, m, batch_size):
-            end = min(start + batch_size, m)
-            batch_indices = indices[start:end]
-            batch_X = [X[i] for i in batch_indices]
-            batch_y = [y[i] for i in batch_indices]
-            
-            h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in batch_X]
-            errors = [(hi - yi) for hi, yi in zip(h, batch_y)]
-            
-            X_T = MathUtils.transpose(batch_X)
-            for j in range(len(weights)):
-                gradient[j] += (1/len(batch_X)) * sum(err * xj for err, xj in zip(errors, X_T[j]))
-        
-        gradient = [g * (batch_size/m) for g in gradient]
-        return gradient
-
-    def stochastic_gradient_descent(self, X, y, weights):
-        n_features = len(weights)
-        gradient = [0] * n_features
-
-        idx = random.randint(0, len(X) - 1)
-        x_i = X[idx]
-        y_i = y[idx]
-
-        h = MathUtils.sigmoid(MathUtils.dot_product(x_i, weights))
-        error = h - y_i
-
-        for j in range(n_features):
-            gradient[j] = error * x_i[j]
-        
-        return gradient
-
+    
     def gradient_descent(self, X, y, weights):
-        """Wrapper method to choose gradient descent type"""
-
-        if self.gd_type == 'batch':
-            return self.gradient_descent_batch(X, y, weights)
-        elif self.gd_type == 'stochastic':
-            return self.stochastic_gradient_descent(X, y, weights)
-        else:
-            return self.gradient_descent_standard(X, y, weights)
+        m = len(X)
+        h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X]
+        gradient = [0] * len(weights)
+        for j in range(len(weights)):
+            gradient[j] = (1/m) * sum((hi - yi) * xi[j] for hi, yi, xi in zip(h, y, X))
+        return gradient
     
     def fit_one_vs_all(self, X, y, class_val):
-        """Train logistic regression for one class vs all others"""
+        m = len(X)
         n = len(X[0])
         X_with_bias = [[1] + row for row in X]
         y_binary = [1 if yi == class_val else 0 for yi in y]
         weights = [0] * (n + 1)
-
         costs = []
         for i in range(self.max_iter):
             gradient = self.gradient_descent(X_with_bias, y_binary, weights)
-            weights = [w - self.learning_rate * g for w, g in zip(weights, gradient)]
-
+            weights = MathUtils.subtract_vectors(weights, MathUtils.scale_vector(gradient, self.learning_rate))
             if i % 50 == 0:
                 cost = self.compute_cost(X_with_bias, y_binary, weights)
                 costs.append(cost)
                 if len(costs) > 1 and abs(costs[-1] - costs[-2]) < self.epsilon:
                     break
-                    
         return weights, costs
-
-    def fit(self, X, y):
-        """Train model for all classes using one-vs-all approach"""
-        X = [list(map(float, row)) for row in X]
-        y = list(y)
-        X_norm, self.mean, self.std = MathUtils.standardize(X)
-        self.classes = list(set(y))
-        self.features = len(X[0])
+    
+    def fit(self, X_train, y_train, X_val, y_val):
+        X_train_norm, self.min_vals, self.max_vals = MathUtils.min_max_scale(X_train)
+        X_val_norm = [[(x - min_v) / (max_v - min_v if max_v - min_v != 0 else 1) 
+                       for x, min_v, max_v in zip(row, self.min_vals, self.max_vals)] 
+                      for row in X_val]
+        
+        self.classes = list(set(y_train))
+        self.features = len(X_train[0])
+        
         costs_dict = {}
-
-        tasks = [(class_val, X_norm, y, self.max_iter, self.learning_rate, self.epsilon, self.gd_type) 
-                for class_val in self.classes]
-        with Pool() as pool:
-            results = pool.map(fit_class_wrapper, tasks)
-
-        for class_val, (weights, costs) in results:
+        for class_val in self.classes:
+            weights, costs = self.fit_one_vs_all(X_train_norm, y_train, class_val)
             self.weights[class_val] = weights
             costs_dict[class_val] = costs
-        return costs_dict
-
-    def predict_proba(self, X):
-        """Predict probability for each class"""
-        X = [list(map(float, row)) for row in X]
-        X_norm = [[(x - m) / s for x, m, s in zip(row, self.mean, self.std)] for row in X]
         
+        val_predictions = self.predict(X_val)
+        val_accuracy = sum(1 for pred, true in zip(val_predictions, y_val) if pred == true) / len(y_val)
+        print(f"Validation accuracy: {val_accuracy:.4f}")
+        
+        return costs_dict
+    
+    def predict_proba(self, X):
+        X_norm = [[(x - min_v) / (max_v - min_v if max_v - min_v != 0 else 1) 
+                   for x, min_v, max_v in zip(row, self.min_vals, self.max_vals)] 
+                  for row in X]
         m = len(X_norm)
         X_with_bias = [[1] + row for row in X_norm]
-        
         probas = {}
         for class_val, weights in self.weights.items():
             probas[class_val] = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X_with_bias]
         return probas
-
+    
     def predict(self, X):
-        """Predict class with highest probability"""
         probas = self.predict_proba(X)
-        
         m = len(X)
         predictions = []
-        
         for i in range(m):
             max_prob = -1
             max_class = None
@@ -167,24 +92,30 @@ class LogisticRegression:
                     max_prob = probs[i]
                     max_class = class_val
             predictions.append(max_class)
-        
         return predictions
-
+    
     def save_model(self, filename):
-        """Save model parameters to file"""
         model_data = {
-            'weights': {str(k): v for k, v in self.weights.items()},
-            'mean': self.mean,
-            'std': self.std,
+            'weights': self.weights,
+            'min_vals': self.min_vals,
+            'max_vals': self.max_vals,
+            'means': self.means,
             'classes': self.classes,
-            'gd_type': self.gd_type
+            'feature_names': self.feature_names
         }
         with open(filename, 'w') as f:
             json.dump(model_data, f)
 
-def fit_class_wrapper(args):
-    """Function for parallel training of one class"""
-    class_val, X_data, y_data, max_iter, learning_rate, epsilon, gd_type = args
-    lr_temp = LogisticRegression(learning_rate=learning_rate, max_iter=max_iter, 
-                               epsilon=epsilon, gd_type=gd_type)
-    return class_val, lr_temp.fit_one_vs_all(X_data, y_data, class_val)
+    @classmethod
+    def load_model(cls, filename):
+        with open(filename, 'r') as f:
+            model_data = json.load(f)
+        model = cls()
+        model.weights = model_data['weights']
+        model.min_vals = model_data['min_vals']
+        model.max_vals = model_data['max_vals']
+        model.means = model_data['means']
+        model.classes = model_data['classes']
+        model.feature_names = model_data['feature_names']
+        model.features = len(model.min_vals)
+        return model

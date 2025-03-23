@@ -21,9 +21,19 @@ class MathUtils:
         return sum(a * b for a, b in zip(vec1, vec2))
 
     @staticmethod
-    def matrix_vector_mult(matrix, vector):
-        """Matrix-vector multiplication"""
-        return [MathUtils.dot_product(row, vector) for row in matrix]
+    def add_vectors(vec1, vec2):
+        """Add two vectors element-wise"""
+        return [a + b for a, b in zip(vec1, vec2)]
+
+    @staticmethod
+    def subtract_vectors(vec1, vec2):
+        """Subtract two vectors element-wise"""
+        return [a - b for a, b in zip(vec1, vec2)]
+
+    @staticmethod
+    def scale_vector(vec, scalar):
+        """Multiply vector by scalar"""
+        return [x * scalar for x in vec]
 
     @staticmethod
     def transpose(matrix):
@@ -31,27 +41,19 @@ class MathUtils:
         return list(map(list, zip(*matrix)))
 
     @staticmethod
+    def min_max_scale(X):
+        """Min-max scaling for a list of lists"""
+        n_features = len(X[0])
+        min_vals = [min(row[i] for row in X) for i in range(n_features)]
+        max_vals = [max(row[i] for row in X) for i in range(n_features)]
+        range_vals = [max_v - min_v if max_v - min_v != 0 else 1 for max_v, min_v in zip(max_vals, min_vals)]
+        X_norm = [[(x - min_v) / r for x, min_v, r in zip(row, min_vals, range_vals)] for row in X]
+        return X_norm, min_vals, max_vals
+
+    @staticmethod
     def mean(values):
         """Mean value of a list"""
         return sum(values) / len(values) if values else 0
-
-    @staticmethod
-    def std(values, mean_val):
-        """Standard deviation of a list"""
-        if not values:
-            return 1
-        variance = sum((x - mean_val) ** 2 for x in values) / len(values)
-        return math.sqrt(variance) if variance > 0 else 1
-
-    @staticmethod
-    def standardize(data, mean=None, std=None):
-        """Standardize data: (x - mean) / std"""
-        if mean is None:
-            mean = [MathUtils.mean(col) for col in MathUtils.transpose(data)]
-        if std is None:
-            std = [MathUtils.std(col, m) for col, m in zip(MathUtils.transpose(data), mean)]
-        result = [[(x - m) / s for x, m, s in zip(row, mean, std)] for row in data]
-        return result, mean, std
 
     @staticmethod
     def log(x, epsilon=1e-5):

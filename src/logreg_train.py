@@ -1,83 +1,75 @@
+import pandas as pd
+import matplotlib.pyplot as plt
 import argparse
-import csv
-from logistic_regression import LogisticRegression
 from math_utils import MathUtils
+from logistic_regression import LogisticRegression
 
-
-def load_and_prepare_data(file_path):
-    """Load and prepare data from CSV"""
-    with open(file_path, 'r') as f:
-        reader = csv.reader(f)
-        headers = next(reader)
-        data = list(reader)
-
-    if 'Hogwarts House' not in headers:
+def load_and_prepare_data(file_path, means=None):
+    data = pd.read_csv(file_path)
+    if 'Hogwarts House' not in data.columns:
         raise ValueError("Dataset must contain 'Hogwarts House' column")
+    numeric_features = data.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    if 'Index' in numeric_features:
+        numeric_features.remove('Index')
+    data = data.dropna(subset=numeric_features)
+    X = [list(row) for row in data[numeric_features].values]
+    y = list(data['Hogwarts House'].values)
+    if means is None:
+        means = [MathUtils.mean([row[i] for row in X]) for i in range(len(X[0]))]
+    else:
+        X = [[means[i] if pd.isna(x) else x for i, x in enumerate(row)] for row in X]
+    return X, y, numeric_features, means
 
-    numeric_cols = [i for i, h in enumerate(headers) if h not in ['Index', 'Hogwarts House'] and data[0][i].replace('.', '', 1).lstrip('-').isdigit()]
+def visualize_training(costs_dict):
+    plt.figure(figsize=(10, 6))
+    for class_val, costs in costs_dict.items():
+        plt.plot(costs, label=f'Class: {class_val}')
+    plt.title('Cost Function during Training')
+    plt.xlabel('Iterations (x50)')
+    plt.ylabel('Cost')
+    plt.legend()
+    plt.show()
 
-    X = []
-    y = []
-    house_idx = headers.index('Hogwarts House')
-
-    for row in data:
-        features = []
-        for idx in numeric_cols:
-            val = float(row[idx]) if row[idx] else MathUtils.mean([float(r[idx]) for r in data if r[idx]])
-            features.append(val)
-        X.append(features)
-        y.append(row[house_idx])
-    return X, y, numeric_cols
-
-def moving_average(values, window=3):
-    """Compute moving average for smoothing the cost graph"""
-    result = []
-    for i in range(len(values) - window + 1):
-        result.append(sum(values[i:i+window]) / window)
-    return result
-
-def visualize_training(costs_dict, save_path=None):
-    """Visualize training progress"""
-    try:
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 6))
-        for class_val, costs in costs_dict.items():
-            smooth_costs = moving_average(costs)
-            plt.plot(smooth_costs, label=f'Class: {class_val}')
-        plt.title('Cost Function during Training')
-        plt.xlabel('Iterations (x50)')
-        plt.ylabel('Cost')
-        plt.legend()
-        if save_path:
-            plt.savefig(save_path)
-        else:
-            plt.show()
-    except ImportError:
-        print("Matplotlib not available, skipping visualization")
+def train_test_split(X, y, test_size=0.2, random_state=42):
+    import random
+    random.seed(random_state)
+    data = list(zip(X, y))
+    random.shuffle(data)
+    split_idx = int(len(data) * (1 - test_size))
+    X_train, y_train = zip(*data[:split_idx])
+    X_val, y_val = zip(*data[split_idx:])
+    return list(X_train), list(y_train), list(X_val), list(y_val)
 
 def main():
-    parser = argparse.ArgumentParser(description='Train logistic regression classifier')
-    parser.add_argument('dataset', type=str, help='Path to training dataset CSV file')
+    parser = argparse.ArgumentParser(description='Train logistic regression classifier for Hogwarts houses')
+    parser.add_argument('dataset', type=str, help='Path to training CSV file')
     parser.add_argument('--output', type=str, default='model.json', help='Output file for model parameters')
-    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.1, help='Learning rate')
     parser.add_argument('--iter', type=int, default=1000, help='Maximum iterations')
     parser.add_argument('--visualize', action='store_true', help='Visualize training progress')
     parser.add_argument('--gd', type=str, choices=['standard', 'batch', 'stochastic'], default='standard',help='Type of gradient descent: standard/batch/stochastic')
-    args = parser.parse_args()
 
+    args = parser.parse_args()
+    
     try:
         print(f"Loading data from {args.dataset}...")
-        X, y, _ = load_and_prepare_data(args.dataset)
-        print(f"Training on {len(X)} samples with {len(X[0])} features...")
+        X, y, feature_names, means = load_and_prepare_data(args.dataset)
 
-        model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter, gd_type=args.gd)
-        costs_dict = model.fit(X, y)
+        X_train, y_train, X_val, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
+        print(f"Training on {len(X_train)} samples, validating on {len(X_val)} samples with {len(X_train[0])} features...")
+
+        model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter, gd=args.gd)
+        model.means = means
+        model.feature_names = feature_names
+        costs_dict = model.fit(X_train, y_train, X_val, y_val)
+        
         model.save_model(args.output)
         print(f"Model saved to {args.output}")
-
+        
         if args.visualize:
             visualize_training(costs_dict)
+        
     except Exception as e:
         print(f"Error: {e}")
 

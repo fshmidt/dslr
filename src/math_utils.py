@@ -36,6 +36,11 @@ class MathUtils:
         return [x * scalar for x in vec]
 
     @staticmethod
+    def transpose(matrix):
+        """Matrix transposition"""
+        return list(map(list, zip(*matrix)))
+
+    @staticmethod
     def min_max_scale(X):
         """Min-max scaling for a list of lists"""
         n_features = len(X[0])

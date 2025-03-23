@@ -47,7 +47,8 @@ def main():
     parser.add_argument('--lr', type=float, default=0.1, help='Learning rate')
     parser.add_argument('--iter', type=int, default=1000, help='Maximum iterations')
     parser.add_argument('--visualize', action='store_true', help='Visualize training progress')
-    
+    parser.add_argument('--gd', type=str, choices=['standard', 'batch', 'stochastic'], default='standard',help='Type of gradient descent: standard/batch/stochastic')
+
     args = parser.parse_args()
     
     try:
@@ -58,7 +59,7 @@ def main():
 
         print(f"Training on {len(X_train)} samples, validating on {len(X_val)} samples with {len(X_train[0])} features...")
 
-        model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter)
+        model = LogisticRegression(learning_rate=args.lr, max_iter=args.iter, gd=args.gd)
         model.means = means
         model.feature_names = feature_names
         costs_dict = model.fit(X_train, y_train, X_val, y_val)

@@ -1,8 +1,9 @@
 import json
 from math_utils import MathUtils
+import random
 
 class LogisticRegression:
-    def __init__(self, learning_rate=0.1, max_iter=1000, epsilon=1e-5):
+    def __init__(self, learning_rate=0.1, max_iter=1000, epsilon=1e-5, gd="standard"):
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.epsilon = epsilon
@@ -13,21 +14,71 @@ class LogisticRegression:
         self.max_vals = None
         self.means = None
         self.feature_names = None
-    
+        self.gd_type = gd
+
     def compute_cost(self, X, y, weights):
         m = len(X)
         h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X]
         cost = -(1/m) * sum(yi * MathUtils.log(hi) + (1 - yi) * MathUtils.log(1 - hi) for yi, hi in zip(y, h))
         return cost
-    
-    def gradient_descent(self, X, y, weights):
+
+    def gradient_descent_standard(self, X, y, weights):
         m = len(X)
         h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in X]
         gradient = [0] * len(weights)
         for j in range(len(weights)):
             gradient[j] = (1/m) * sum((hi - yi) * xi[j] for hi, yi, xi in zip(h, y, X))
         return gradient
-    
+
+    def gradient_descent_batch(self, X, y, weights, batch_size=32):
+        """Gradient descent with mini-batches"""
+        m = len(X)
+        gradient = [0] * len(weights)
+
+        indices = list(range(m))
+        random.shuffle(indices)
+
+        for start in range(0, m, batch_size):
+            end = min(start + batch_size, m)
+            batch_indices = indices[start:end]
+            batch_X = [X[i] for i in batch_indices]
+            batch_y = [y[i] for i in batch_indices]
+
+            h = [MathUtils.sigmoid(MathUtils.dot_product(x, weights)) for x in batch_X]
+            errors = [(hi - yi) for hi, yi in zip(h, batch_y)]
+
+            X_T = MathUtils.transpose(batch_X)
+            for j in range(len(weights)):
+                gradient[j] += (1/len(batch_X)) * sum(err * xj for err, xj in zip(errors, X_T[j]))
+
+        gradient = [g * (batch_size/m) for g in gradient]
+        return gradient
+
+    def gradient_descent_stochastic(self, X, y, weights):
+        n_features = len(weights)
+        gradient = [0] * n_features
+
+        idx = random.randint(0, len(X) - 1)
+        x_i = X[idx]
+        y_i = y[idx]
+
+        h = MathUtils.sigmoid(MathUtils.dot_product(x_i, weights))
+        error = h - y_i
+
+        for j in range(n_features):
+            gradient[j] = error * x_i[j]
+
+        return gradient
+
+    def gradient_descent(self, X, y, weights):
+        """Wrapper method to choose gradient descent type"""
+        if self.gd_type == 'batch':
+            return self.gradient_descent_batch(X, y, weights)
+        elif self.gd_type == 'stochastic':
+            return self.gradient_descent_stochastic(X, y, weights)
+        else:
+            return self.gradient_descent_standard(X, y, weights)
+
     def fit_one_vs_all(self, X, y, class_val):
         n = len(X[0])
         X_with_bias = [[1] + row for row in X]
